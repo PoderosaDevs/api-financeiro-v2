@@ -1,14 +1,12 @@
 import { Request, Response } from 'express';
 import { BatchService } from '../services/BatchService';
-import { ImportPaymentsService } from '../services/ImportPaymentsService'
-import { ImportSalesService } from '../services/ImportSalesService'
+import { ImportPaymentsService } from '../services/ImportPaymentsService';
+import { ImportSalesService } from '../services/ImportSalesService';
 import { Batch } from '../models';
 
 const batchService = new BatchService();
 const paymentsService = new ImportPaymentsService();
 const salesService = new ImportSalesService();
-
-
 
 export class BatchController {
 
@@ -38,27 +36,12 @@ export class BatchController {
     const { id } = req.params;
 
     try {
-      if (!id) {
-        return res.status(400).json({ error: 'O ID do lote é obrigatório.' });
+      if (!id || id === 'null') {
+        return res.status(400).json({ error: 'O ID do lote fornecido é inválido ou obrigatório.' });
       }
 
-      // IMPORTANTE: Como os detalhes de vendas e pagamentos vêm de fluxos muito diferentes,
-      // reaproveitaremos a lógica interna do seu service original ou faremos uma busca por PK.
-      // O método abaixo assume que o getBatchDetails já sabe resolver o lote pelo tipo dele.
-
-      // Criando uma instância genérica para recuperar os dados
-      // Nota: Caso queira separar, pode chamar os métodos específicos com base no tipo.
-      let batchDetails;
-
-      // Usando uma abordagem segura de verificação
-      try {
-        // Se você preferir chamar o service original, pode manter a importação do service de origem.
-        // Aqui buscamos a rota unificada direta do banco para detalhamento rápido:
-        const { Batch } = require('../models/index');
-        batchDetails = await Batch.findByPk(id.trim(), { include: { all: true, nested: true } });
-      } catch {
-        return res.status(404).json({ error: 'Não foi possível carregar os relacionamentos deste lote.' });
-      }
+      // Ajustado para usar o model importado no topo de forma limpa
+      const batchDetails = await Batch.findByPk(id.trim(), { include: { all: true, nested: true } });
 
       if (!batchDetails) {
         return res.status(404).json({ error: 'Lote de importação não encontrado.' });
@@ -72,6 +55,60 @@ export class BatchController {
   }
 
   /**
+   * Renomear um lote específico
+   * PATCH /batches/:id/rename ou PUT /batches/:id
+   */
+  async rename(req: Request, res: Response) {
+    const { id } = req.params;
+    const { name } = req.body;
+    const timestamp = new Date().toISOString();
+
+    console.log(`[${timestamp}] [INFO] [RenameBatch] Tentativa de renomear o lote ID: ${id}`);
+
+    try {
+      if (!id || id === 'null') {
+        return res.status(400).json({ error: 'O ID do lote fornecido é inválido ou obrigatório.' });
+      }
+
+      if (!name || typeof name !== 'string' || name.trim() === '') {
+        return res.status(400).json({ error: 'O novo nome do lote é obrigatório e deve ser um texto válido.' });
+      }
+
+      const formattedId = id.trim();
+      const formattedName = name.trim();
+
+      console.log(`[${timestamp}] [INFO] [RenameBatch] Buscando lote no banco de dados...`);
+      const batch = await Batch.findByPk(formattedId);
+
+      if (!batch) {
+        console.warn(`[${timestamp}] [WARN] [RenameBatch] Lote com ID ${formattedId} não foi encontrado.`);
+        return res.status(404).json({ error: 'Lote de importação não encontrado.' });
+      }
+
+      // Executa a alteração do nome diretamente no modelo do Sequelize
+      batch.name = formattedName;
+      await batch.save();
+
+      console.log(`[${timestamp}] [INFO] [RenameBatch] Lote ${formattedId} renomeado para "${formattedName}" com sucesso.`);
+      
+      return res.json({
+        message: 'Lote renomeado com sucesso.',
+        batch: {
+          id: batch.id,
+          name: batch.name,
+          type: batch.type,
+          updatedAt: batch.updatedAt
+        }
+      });
+
+    } catch (error) {
+      console.error(`[${timestamp}] [ERROR] [RenameBatch] Erro crítico ao renomear lote ${id}:`, error);
+      return res.status(500).json({
+        error: error instanceof Error ? error.message : 'Erro crítico ao renomear o lote no sistema.'
+      });
+    }
+  }
+
   /**
    * Deletar um lote e reverter os dados encadeados
    * DELETE /batches/:id
@@ -102,7 +139,6 @@ export class BatchController {
 
       let result;
 
-      // Decide qual Service de origem chamar para limpar o lote com segurança cronológica
       if (batchExists.type === 'PAYMENTS') {
         console.log(`[${timestamp}] [INFO] [DeleteBatch] Encaminhando exclusão para paymentsService (ID: ${formattedId}).`);
         result = await paymentsService.deleteBatch(formattedId);
@@ -117,7 +153,6 @@ export class BatchController {
     } catch (error) {
       console.error(`[${timestamp}] [ERROR] [DeleteBatch] Erro crítico ao deletar lote ${id}:`, error);
 
-      // Intercepta o erro de UUID corrompido do banco de dados e devolve uma resposta limpa
       if (error instanceof Error && error.message.includes('invalid input syntax for type uuid')) {
         return res.status(422).json({
           error: 'Não foi possível excluir o lote. Existem registros vinculados com dados de ID de venda corrompidos ("null") no banco de dados.'

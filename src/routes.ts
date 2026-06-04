@@ -6,7 +6,7 @@ import { MarketplaceController } from './controllers/MarketplaceController';
 import { SaleController } from './controllers/SaleController'; 
 import { ImportPaymentsController } from './controllers/ImportPaymentsController';
 import { StoreController } from './controllers/StoreController';
-import { BatchController } from './controllers/BatchController'; // 👈 Novo Controller Importado
+import { BatchController } from './controllers/BatchController'; 
 
 const routes = Router();
 const authController = new AuthController();
@@ -15,7 +15,7 @@ const paymentsController = new ImportPaymentsController();
 const marketplaceController = new MarketplaceController(); 
 const saleController = new SaleController();               
 const storeController = new StoreController();
-const batchController = new BatchController(); // 👈 Instanciado aqui
+const batchController = new BatchController(); 
 
 // Rotas públicas (não precisam de token)
 routes.post('/register', authController.register);
@@ -34,10 +34,10 @@ routes.post('/sales/import', authMiddleware, importSalesController.importData);
 routes.post('/payments/import', authMiddleware, paymentsController.importData);
 
 // --- 📦 NOVAS ROTAS CENTRALIZADAS E UNIFICADAS DE LOTES (BATCHES) ---
-routes.get('/batches', authMiddleware, batchController.list);            // Lista tudo (Venda e Pagamento) com paginação
-routes.get('/batches/:id', authMiddleware, batchController.getDetails);  // Detalha o lote por ID
-routes.delete('/batches/:id', authMiddleware, batchController.delete);      // Exclui o lote de forma segura
-
+routes.get('/batches', authMiddleware, batchController.list);            
+routes.get('/batches/:id', authMiddleware, batchController.getDetails);  
+routes.patch('/batches/:id/rename', authMiddleware, batchController.rename); 
+routes.delete('/batches/:id', authMiddleware, batchController.delete);      
 // 🏪 ROTAS DE MARKETPLACE
 routes.post('/marketplaces', authMiddleware, marketplaceController.create); 
 routes.get('/marketplaces', authMiddleware, marketplaceController.list);
