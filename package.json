@@ -27,10 +27,10 @@
     "pg": "^8.21.0",
     "pg-hstore": "^2.3.4",
     "sequelize": "^6.37.8",
-    "sequelize-typescript": "^2.1.6"
+    "sequelize-typescript": "^2.1.6",
+    "tsx": "^4.22.3"
   },
   "devDependencies": {
-    "tsx": "^4.22.3",
     "typescript": "^5.9.3"
   }
 }
