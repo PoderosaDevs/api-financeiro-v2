@@ -31,7 +31,7 @@ export interface ImportPaymentsPayload {
 
 export class ImportPaymentsService {
 
-  async execute(payload: ImportPaymentsPayload) {
+    async execute(payload: ImportPaymentsPayload) {
         const { rows } = payload;
 
         if (!rows || rows.length === 0) {
@@ -91,7 +91,7 @@ export class ImportPaymentsService {
             raw: true
         });
 
-        const historyMap = _.groupBy(historicalPayments, p => String(p.nf).trim());
+        const historyMap = _.groupBy(historicalPayments, (p: any) => String(p.nf).trim());
 
         // ============================================================================
         // FASE 2: VALIDAÇÃO EM MEMÓRIA (Processamento 100% Síncrono e CPU-Bound)
@@ -131,7 +131,7 @@ export class ImportPaymentsService {
             const alreadyUploadedInCurrentFile = currentFileTracking.get(currentNf) || [];
 
             // Regra: Duplicidade
-            const existsInDb = history.some(p => Number(p.parcelaPaga) === pPaga && p.storeId === currentLoja);
+            const existsInDb = history.some((p: any) => Number(p.parcelaPaga) === pPaga && p.storeId === currentLoja);
             const existsInCurrentFile = alreadyUploadedInCurrentFile.includes(pPaga);
 
             if (existsInDb || existsInCurrentFile) {
@@ -153,7 +153,7 @@ export class ImportPaymentsService {
             }
 
             // Regra: Quebra de Sequência
-            const todasAsParcelasProcessadas = [...history.map(p => Number(p.parcelaPaga)), ...alreadyUploadedInCurrentFile];
+            const todasAsParcelasProcessadas = [...history.map((p: any) => Number(p.parcelaPaga)), ...alreadyUploadedInCurrentFile];
             let sequenciaInvalida = false;
             for (let i = 1; i < pPaga; i++) {
                 if (!todasAsParcelasProcessadas.includes(i)) {
@@ -171,8 +171,8 @@ export class ImportPaymentsService {
             }
 
             // Regra: Teto Financeiro (Protegido contra flutuação de dízimas de float)
-            const somaValorHistorico = history.reduce((sum, p) => sum + Number(p.baseIcms || 0), 0);
-            const somaValorArquivoAtual = validPaymentsToInsert.filter(p => p.nf === currentNf).reduce((sum, p) => sum + p.baseIcms, 0);
+            const somaValorHistorico = history.reduce((sum: number, p: any) => sum + Number(p.baseIcms || 0), 0);
+            const somaValorArquivoAtual = validPaymentsToInsert.filter((p: any) => p.nf === currentNf).reduce((sum: number, p: any) => sum + p.baseIcms, 0);
             const novoValorAtual = Number(row.baseIcms || 0);
 
             const acumuladoTotal = Number((somaValorHistorico + somaValorArquivoAtual + novoValorAtual).toFixed(2));
@@ -215,7 +215,7 @@ export class ImportPaymentsService {
             console.log(`📦 Iniciando gravação de ${totalPaymentsToSave} repasses válidos...`);
 
             // Calcula o total acumulado da base ICMS das parcelas válidas aprovadas
-            const totalBaseIcmsCalculado = validPaymentsToInsert.reduce((sum, p) => sum + (Number(p.baseIcms) || 0), 0);
+            const totalBaseIcmsCalculado = validPaymentsToInsert.reduce((sum: number, p: any) => sum + (Number(p.baseIcms) || 0), 0);
 
             const batchTransaction = await sequelize.transaction();
             try {
@@ -227,7 +227,7 @@ export class ImportPaymentsService {
                 }, { transaction: batchTransaction });
 
                 batchId = batch.id;
-                validPaymentsToInsert.forEach(p => p.batchId = batchId);
+                validPaymentsToInsert.forEach((p: any) => p.batchId = batchId);
 
                 // Divisão em blocos de persistência em lote segura
                 const chunks = _.chunk(validPaymentsToInsert, 2000);
@@ -287,6 +287,7 @@ export class ImportPaymentsService {
                     'salesCount'
                 ],
                 [
+                    // Corrigido: Explicitando tipo any nos parâmetros da função callback interna se necessário (aqui é string SQL literal)
                     sequelize.literal(`(SELECT COALESCE(SUM("payments"."repasse"), 0)::float FROM "${Payment.tableName}" AS "payments" WHERE "payments"."batch_id" = "${Batch.tableName}"."id")`),
                     'totalBaseIcms'
                 ]
@@ -356,14 +357,14 @@ export class ImportPaymentsService {
             const paymentsBeingDeleted = targetMap[saleId] || [];
             const historyTotal = generalHistoryMap[saleId] || [];
 
-            const maxParcelaDeleted = Math.max(...paymentsBeingDeleted.map(p => Number(p.parcelaPaga)));
+            const maxParcelaDeleted = Math.max(...paymentsBeingDeleted.map((p: any) => Number(p.parcelaPaga)));
             const currentNf = paymentsBeingDeleted[0]?.nf || '';
 
             // Verifica se existe alguma parcela MAIOR que a que estamos apagando em OUTRO lote
-            const hasFutureActiveParcela = historyTotal.some(p => p.batchId !== batchId && Number(p.parcelaPaga) > maxParcelaDeleted);
+            const hasFutureActiveParcela = historyTotal.some((p: any) => p.batchId !== batchId && Number(p.parcelaPaga) > maxParcelaDeleted);
 
             if (hasFutureActiveParcela) {
-                throw new Error(`Operação Abortada! A NF ${currentNf} possui parcelas posteriores (Ex: Parcela 2) liquidadas em lotes mais recentes. Exclua os lotes mais novos primeiro.`);
+                throw new Error(`Operação Abortada! A NF ${currentNf} possui parcelas posteriores (Ex: Parcela 2) liquidadas in lotes mais recentes. Exclua os lotes mais novos primeiro.`);
             }
         }
 
