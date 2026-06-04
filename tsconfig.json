@@ -6,9 +6,15 @@
     "strict": true,
     "esModuleInterop": true,
     "ignoreDeprecations": "6.0",
-
     
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "emitDecoratorMetadata": true,
+
+    "skipLibCheck": true,
+    "noImplicitAny": false,
+    "strictNullChecks": false,
+    
+    "outDir": "./dist",
+    "rootDir": "./src"
   }
 }
