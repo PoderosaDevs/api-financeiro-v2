@@ -11,7 +11,7 @@ const salesService = new ImportSalesService();
 
 
 export class BatchController {
-  
+
   /**
    * Listar todos os lotes (Vendas e Repasses unificados)
    * GET /batches?page=1&limit=10
@@ -22,7 +22,7 @@ export class BatchController {
       const limit = Number(req.query.limit) || 10;
 
       const batches = await batchService.listAllBatches(page, limit);
-      
+
       return res.json(batches);
     } catch (error) {
       console.error('Erro ao listar lotes:', error);
@@ -45,11 +45,11 @@ export class BatchController {
       // IMPORTANTE: Como os detalhes de vendas e pagamentos vêm de fluxos muito diferentes,
       // reaproveitaremos a lógica interna do seu service original ou faremos uma busca por PK.
       // O método abaixo assume que o getBatchDetails já sabe resolver o lote pelo tipo dele.
-      
+
       // Criando uma instância genérica para recuperar os dados
       // Nota: Caso queira separar, pode chamar os métodos específicos com base no tipo.
       let batchDetails;
-      
+
       // Usando uma abordagem segura de verificação
       try {
         // Se você preferir chamar o service original, pode manter a importação do service de origem.
@@ -83,13 +83,13 @@ export class BatchController {
     console.log(`[${timestamp}] [INFO] [DeleteBatch] Iniciando processo de exclusão para o ID: ${id}`);
 
     try {
-      if (!id) {
-        console.warn(`[${timestamp}] [WARN] [DeleteBatch] Tentativa de exclusão sem fornecer o ID do lote.`);
-        return res.status(400).json({ error: 'O ID do lote é obrigatório para exclusão.' });
+      if (!id || id === 'null') {
+        console.warn(`[${timestamp}] [WARN] [DeleteBatch] Tentativa de exclusão com ID ausente ou inválido.`);
+        return res.status(400).json({ error: 'O ID do lote fornecido é inválido ou obrigatório.' });
       }
 
       const formattedId = id.trim();
-      
+
       console.log(`[${timestamp}] [INFO] [DeleteBatch] Buscando lote no banco de dados (ID: ${formattedId})...`);
       const batchExists = await Batch.findByPk(formattedId);
 
@@ -115,11 +115,17 @@ export class BatchController {
       return res.json(result);
 
     } catch (error) {
-      // Mantive e melhorei o log de erro original
       console.error(`[${timestamp}] [ERROR] [DeleteBatch] Erro crítico ao deletar lote ${id}:`, error);
-      
-      return res.status(500).json({ 
-        error: error instanceof Error ? error.message : 'Erro crítico ao remover lote do sistema.' 
+
+      // Intercepta o erro de UUID corrompido do banco de dados e devolve uma resposta limpa
+      if (error instanceof Error && error.message.includes('invalid input syntax for type uuid')) {
+        return res.status(422).json({
+          error: 'Não foi possível excluir o lote. Existem registros vinculados com dados de ID de venda corrompidos ("null") no banco de dados.'
+        });
+      }
+
+      return res.status(500).json({
+        error: error instanceof Error ? error.message : 'Erro crítico ao remover lote do sistema.'
       });
     }
   }
