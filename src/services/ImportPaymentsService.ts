@@ -31,7 +31,7 @@ export interface ImportPaymentsPayload {
 
 export class ImportPaymentsService {
 
-  async execute(payload: ImportPaymentsPayload) {
+    async execute(payload: ImportPaymentsPayload) {
         const { rows } = payload;
 
         if (!rows || rows.length === 0) {
@@ -324,6 +324,12 @@ export class ImportPaymentsService {
     }
 
     async deleteBatch(batchId: string) {
+        // 🔍 Validação Preventiva: Bloqueia strings 'null', indefinidas ou que não tenham formato de UUID
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-4][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        if (!batchId || batchId === 'null' || !uuidRegex.test(batchId)) {
+            throw new Error('O ID do lote fornecido é inválido ou não foi enviado corretamente.');
+        }
+
         const batch = await Batch.findOne({ where: { id: batchId, type: 'PAYMENTS' } });
         if (!batch) throw new Error('Lote de repasse não encontrado.');
 
