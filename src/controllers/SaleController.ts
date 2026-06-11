@@ -361,7 +361,7 @@ export class SaleController {
       });
 
       // Cálculo do saldo pendente líquido
-      const saldoAReceber = Math.max(0, receitaBrutaPrevista - receitaConciliadaRecebida);
+      const saldoAReceber = Math.max(0, receitaBrutaPrevista - receitaConciliadaRecebida - comissoesMarketplace - custosLogisticaFrete);
 
       // 5. Retorno com formatação decimal tratada contra dízimas
       return res.json({
