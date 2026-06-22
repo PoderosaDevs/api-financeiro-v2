@@ -2,10 +2,14 @@ import { Request, Response } from 'express';
 import { BatchService } from '../services/BatchService';
 import { ImportPaymentsService } from '../services/ImportPaymentsService';
 import { ImportSalesService } from '../services/ImportSalesService';
+import { ImportDevolutionsService } from '../services/ImportDevolutionsService';
+
 import { Batch } from '../models';
 
 const batchService = new BatchService();
 const paymentsService = new ImportPaymentsService();
+const devolutionsService = new ImportDevolutionsService();
+
 const salesService = new ImportSalesService();
 
 export class BatchController {
@@ -90,7 +94,7 @@ export class BatchController {
       await batch.save();
 
       console.log(`[${timestamp}] [INFO] [RenameBatch] Lote ${formattedId} renomeado para "${formattedName}" com sucesso.`);
-      
+
       return res.json({
         message: 'Lote renomeado com sucesso.',
         batch: {
@@ -142,6 +146,9 @@ export class BatchController {
       if (batchExists.type === 'PAYMENTS') {
         console.log(`[${timestamp}] [INFO] [DeleteBatch] Encaminhando exclusão para paymentsService (ID: ${formattedId}).`);
         result = await paymentsService.deleteBatch(formattedId);
+      } else if (batchExists.type === 'DEVOLUTIONS') {
+        console.log(`[${timestamp}] [INFO] [DeleteBatch] Encaminhando exclusão para devolutionsService (ID: ${formattedId}).`);
+        result = await devolutionsService.deleteBatch(formattedId);
       } else {
         console.log(`[${timestamp}] [INFO] [DeleteBatch] Encaminhando exclusão para salesService (ID: ${formattedId}).`);
         result = await salesService.deleteBatch(formattedId);

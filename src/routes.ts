@@ -5,6 +5,7 @@ import { authMiddleware } from './middlewares/auth';
 import { MarketplaceController } from './controllers/MarketplaceController';
 import { SaleController } from './controllers/SaleController'; 
 import { ImportPaymentsController } from './controllers/ImportPaymentsController';
+import { ImportDevolutionsController } from './controllers/ImportDevolutionsController'; // 👈 1. Importado o novo Controller
 import { StoreController } from './controllers/StoreController';
 import { BatchController } from './controllers/BatchController'; 
 
@@ -12,6 +13,7 @@ const routes = Router();
 const authController = new AuthController();
 const importSalesController = new ImportSalesController();
 const paymentsController = new ImportPaymentsController();
+const devolutionsController = new ImportDevolutionsController(); // 👈 2. Instanciado o Controller
 const marketplaceController = new MarketplaceController(); 
 const saleController = new SaleController();               
 const storeController = new StoreController();
@@ -29,15 +31,19 @@ routes.get('/profile', authMiddleware, (req, res) => {
   });
 });
 
-// --- FLUXOS DE IMPORTAÇÃO (Gera os lotes de Vendas ou Pagamentos) ---
+// --- FLUXOS DE IMPORTAÇÃO (Gera os lotes de Vendas, Pagamentos ou Devoluções) ---
 routes.post('/sales/import', authMiddleware, importSalesController.importData);   
 routes.post('/payments/import', authMiddleware, paymentsController.importData);
+routes.post('/devolutions/import', authMiddleware, devolutionsController.importData);
 
 // --- 📦 NOVAS ROTAS CENTRALIZADAS E UNIFICADAS DE LOTES (BATCHES) ---
+// Nota: Suas rotas unificadas abaixo já vão listar, detalhar e deletar os lotes de devolução automaticamente 
+// através do BatchController que você já possui criado!
 routes.get('/batches', authMiddleware, batchController.list);            
 routes.get('/batches/:id', authMiddleware, batchController.getDetails);  
 routes.patch('/batches/:id/rename', authMiddleware, batchController.rename); 
 routes.delete('/batches/:id', authMiddleware, batchController.delete);      
+
 // 🏪 ROTAS DE MARKETPLACE
 routes.post('/marketplaces', authMiddleware, marketplaceController.create); 
 routes.get('/marketplaces', authMiddleware, marketplaceController.list);
