@@ -53,6 +53,7 @@ routes.delete('/marketplaces/:id', authMiddleware, marketplaceController.delete)
 // 💰 ROTAS DE VENDAS
 routes.post('/sales', authMiddleware, saleController.create);
 routes.get('/sales', authMiddleware, saleController.list);
+routes.get('/sales/export', authMiddleware, saleController.exportSales);
 routes.get('/sales/summary', authMiddleware, saleController.summary); 
 routes.get('/sales/:id', authMiddleware, saleController.show);
 routes.put('/sales/:id', authMiddleware, saleController.update);

@@ -13,17 +13,37 @@ const devolutionsService = new ImportDevolutionsService();
 const salesService = new ImportSalesService();
 
 export class BatchController {
-
-  /**
-   * Listar todos os lotes (Vendas e Repasses unificados)
-   * GET /batches?page=1&limit=10
+/**
+   * Listar todos os lotes (Vendas, Repasses e Devoluções unificados)
+   * GET /batches?page=1&limit=10&search=&type=&dateFrom=&dateTo=&valueMin=&valueMax=
    */
   async list(req: Request, res: Response) {
     try {
       const page = Number(req.query.page) || 1;
       const limit = Number(req.query.limit) || 10;
 
-      const batches = await batchService.listAllBatches(page, limit);
+      const search = typeof req.query.search === 'string' ? req.query.search : undefined;
+
+      const allowedTypes = ['SALES', 'PAYMENTS', 'DEVOLUTIONS'];
+      const rawType = typeof req.query.type === 'string' ? req.query.type.toUpperCase() : undefined;
+      const type = allowedTypes.includes(rawType as string)
+        ? (rawType as 'SALES' | 'PAYMENTS' | 'DEVOLUTIONS')
+        : undefined;
+
+      const dateFrom = typeof req.query.dateFrom === 'string' ? req.query.dateFrom : undefined;
+      const dateTo = typeof req.query.dateTo === 'string' ? req.query.dateTo : undefined;
+
+      const valueMin = req.query.valueMin !== undefined ? Number(req.query.valueMin) : undefined;
+      const valueMax = req.query.valueMax !== undefined ? Number(req.query.valueMax) : undefined;
+
+      const batches = await batchService.listAllBatches(page, limit, {
+        search,
+        type,
+        dateFrom,
+        dateTo,
+        valueMin: valueMin !== undefined && !isNaN(valueMin) ? valueMin : undefined,
+        valueMax: valueMax !== undefined && !isNaN(valueMax) ? valueMax : undefined
+      });
 
       return res.json(batches);
     } catch (error) {

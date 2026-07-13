@@ -167,6 +167,134 @@ export class SaleController {
   }
 
   // ==========================================
+  // 3. EXPORTAR VENDAS (Mesmos filtros do "list", sem paginação — já devolve achatado pro export)
+  // ==========================================
+  exportSales = async (req: Request, res: Response) => {
+    try {
+      const {
+        storeId,
+        marketplaceId,
+        startDate,
+        endDate,
+        status
+      } = req.query;
+
+      // Teto de segurança: evita que uma exportação sem filtro nenhum tente trazer a base inteira de uma vez.
+      // Se o volume real ultrapassar isso no dia a dia, o próximo passo é paginar a exportação em lotes.
+      const EXPORT_MAX_ROWS = 20000;
+
+      const whereCondition: any = {};
+
+      // Filtro de Status (mesma lógica do list: aceita array ou string única, normaliza pra maiúsculo)
+      if (status) {
+        if (Array.isArray(status)) {
+          whereCondition.status = {
+            [Op.in]: status.map(s => String(s).toUpperCase().trim())
+          };
+        } else {
+          whereCondition.status = String(status).toUpperCase().trim();
+        }
+      }
+
+      // Filtro por Loja
+      if (storeId) {
+        whereCondition.storeId = storeId;
+      }
+
+      // Filtro por Período
+      if (startDate && endDate) {
+        whereCondition.date = { [Op.between]: [startDate, endDate] };
+      } else if (startDate) {
+        whereCondition.date = { [Op.gte]: startDate };
+      } else if (endDate) {
+        whereCondition.date = { [Op.lte]: endDate };
+      }
+
+      // ─── CONSTRUÇÃO SEGURA DOS JOINS (mesmo padrão do list) ───
+      const marketplaceInclude: any = {
+        model: Marketplace,
+        as: 'marketplace',
+        required: false
+      };
+
+      if (marketplaceId) {
+        marketplaceInclude.where = { id: marketplaceId };
+        marketplaceInclude.required = true;
+      }
+
+      const includeCondition: any = [
+        {
+          model: Store,
+          as: 'store',
+          required: marketplaceId ? true : false,
+          include: [marketplaceInclude]
+        },
+        {
+          model: Payment,
+          as: 'payments',
+          required: false
+        }
+      ];
+
+      // Busca tudo que bate com o filtro, sem paginação, respeitando o teto de segurança
+      const sales = await Sale.findAll({
+        where: whereCondition,
+        order: [['date', 'DESC']],
+        include: includeCondition,
+        limit: EXPORT_MAX_ROWS
+      });
+
+      // Achata cada venda + seus pagamentos exatamente no formato que o ExportVendasModal do front espera,
+      // evitando reimplementar essa mesma soma de comissões/repasse no client.
+      const exportRows = sales.map((sale: any) => {
+        const saleJson = sale.toJSON();
+        const payments = saleJson.payments || [];
+
+        let comissaoVenda = 0;
+        let comissaoFrete = 0;
+        let freteETaxas = 0;
+        let liquidoRecebido = 0;
+
+        payments.forEach((p: any) => {
+          comissaoVenda += Number(p.comissaoVenda) || 0;
+          comissaoFrete += Number(p.comissaoFrete) || 0;
+          freteETaxas += Number(p.fretesTaxas) || 0;
+          liquidoRecebido += Number(p.repasse) || 0;
+        });
+
+        let dataFormatada = 'S/D';
+        if (saleJson.date) {
+          const parts = String(saleJson.date).split('-');
+          dataFormatada = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : saleJson.date;
+        }
+
+        return {
+          nf: saleJson.nf,
+          data: dataFormatada,
+          loja: saleJson.storeId,
+          marketplace: saleJson.store?.marketplace?.name || saleJson.store?.marketplaceId || 'Não Mapeado',
+          valorBruto: Number(saleJson.baseIcms) || 0,
+          comissaoVenda: Number(comissaoVenda.toFixed(2)),
+          comissaoFrete: Number(comissaoFrete.toFixed(2)),
+          freteETaxas: Number(freteETaxas.toFixed(2)),
+          liquidoRecebido: Number(liquidoRecebido.toFixed(2)),
+          status: saleJson.status ? saleJson.status.toUpperCase() : 'PENDENTE'
+        };
+      });
+
+      return res.json({
+        totalItems: exportRows.length,
+        truncated: sales.length >= EXPORT_MAX_ROWS, // avisa o front se bateu no teto e pode haver mais dados
+        data: exportRows
+      });
+
+    } catch (error) {
+      console.error('🚨 Erro ao exportar vendas:', error);
+      return res.status(500).json({ error: 'Erro ao exportar vendas.' });
+    }
+  }
+
+  // ==========================================
   // 3. DETALHES DE UMA VENDA (Altamente Detalhado)
   // ==========================================
   show = async (req: Request, res: Response) => {
