@@ -8,6 +8,7 @@ import { ImportPaymentsController } from './controllers/ImportPaymentsController
 import { ImportDevolutionsController } from './controllers/ImportDevolutionsController'; // 👈 1. Importado o novo Controller
 import { StoreController } from './controllers/StoreController';
 import { BatchController } from './controllers/BatchController'; 
+import { FreteController } from './controllers/FreteController';
 
 const routes = Router();
 const authController = new AuthController();
@@ -18,6 +19,8 @@ const marketplaceController = new MarketplaceController();
 const saleController = new SaleController();               
 const storeController = new StoreController();
 const batchController = new BatchController(); 
+const freteController = new FreteController(); 
+
 
 // Rotas públicas (não precisam de token)
 routes.post('/register', authController.register);
@@ -64,5 +67,9 @@ routes.post('/stores', authMiddleware, storeController.create);
 routes.get('/stores', authMiddleware, storeController.list);
 routes.put('/stores/:id', authMiddleware, storeController.update);
 routes.delete('/stores/:id', authMiddleware, storeController.delete);
+
+// 🏷️ ROTAS DE FRETE
+routes.get('/vendas/frete', freteController.list);
+routes.post('/vendas/frete/import', freteController.import);
 
 export { routes };

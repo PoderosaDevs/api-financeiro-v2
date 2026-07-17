@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { Sequelize } from 'sequelize-typescript';
-import { User, Batch, Marketplace, Store, Sale, Payment,Devolution } from '../models/index'; // 👈 Importando tudo do arquivo único
+import { User, Batch, Marketplace, Store, Sale, Payment,Devolution, Frete } from '../models/index'; // 👈 Importando tudo do arquivo único
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -11,7 +11,7 @@ if (!connectionString) {
 export const sequelize = new Sequelize(connectionString, {
   dialect: 'postgres',
   logging: false, 
-  models: [User, Batch, Marketplace, Store, Sale, Payment, Devolution], 
+  models: [User, Batch, Marketplace, Store, Sale, Payment, Devolution, Frete], 
 });
 
 export async function connectDatabase() {
