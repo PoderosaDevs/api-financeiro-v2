@@ -9,6 +9,9 @@ import { ImportDevolutionsController } from './controllers/ImportDevolutionsCont
 import { StoreController } from './controllers/StoreController';
 import { BatchController } from './controllers/BatchController'; 
 import { FreteController } from './controllers/FreteController';
+import { DifalController } from './controllers/DifalController';
+import { DashboardController } from './controllers/DashboardController';
+import { ReportController } from './controllers/ReportController';
 
 const routes = Router();
 const authController = new AuthController();
@@ -19,9 +22,11 @@ const marketplaceController = new MarketplaceController();
 const saleController = new SaleController();               
 const storeController = new StoreController();
 const batchController = new BatchController(); 
-const freteController = new FreteController(); 
-
-
+const freteController = new FreteController();
+const difalController = new DifalController();
+const dashboardController = new DashboardController();
+const reportController = new ReportController();
+ 
 // Rotas públicas (não precisam de token)
 routes.post('/register', authController.register);
 routes.post('/login', (req, res) => authController.login(req, res));
@@ -71,5 +76,18 @@ routes.delete('/stores/:id', authMiddleware, storeController.delete);
 // 🏷️ ROTAS DE FRETE
 routes.get('/vendas/frete', freteController.list);
 routes.post('/vendas/frete/import', freteController.import);
+
+// 🏷️ ROTAS DE DIFAL
+routes.get('/vendas/difal', (req, res) => difalController.list(req, res));
+routes.get('/vendas/difal/lojas', (req, res) => difalController.listLojas(req, res));
+routes.get('/vendas/difal/metricas', (req, res) => difalController.metricas(req, res));
+routes.post('/vendas/difal/import', (req, res) => difalController.import(req, res));
+routes.patch('/vendas/difal/recolher', (req, res) => difalController.recolher(req, res));
+
+// 📊 ROTAS DE DASHBOARD (somente leitura — usadas pela tela inicial)
+routes.get('/dashboard/summary', authMiddleware, dashboardController.summary);
+
+// 📑 ROTAS DE RELATÓRIOS / APRESENTAÇÃO (somente leitura)
+routes.get('/reports/generate', authMiddleware, reportController.generate);
 
 export { routes };

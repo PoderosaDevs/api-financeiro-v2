@@ -432,39 +432,36 @@ export class SaleController {
         ];
       }
 
-      const includeCondition: any = [];
+      const marketplaceStoreInclude = (attrs: string[]): any => {
+        if (marketplaceId) {
+          return {
+            model: Store, as: 'store', required: true, attributes: attrs,
+            include: [{ model: Marketplace, as: 'marketplace', where: { id: marketplaceId }, required: true, attributes: [] }]
+          };
+        }
+        return { model: Store, as: 'store', attributes: attrs };
+      };
 
-      // Relacionamento com Loja e Marketplace
-      if (marketplaceId) {
-        includeCondition.push({
-          model: Store,
-          as: 'store',
-          required: true,
-          include: [{
-            model: Marketplace,
-            as: 'marketplace',
-            where: { id: marketplaceId },
-            required: true
-          }]
-        });
-      } else {
-        includeCondition.push({
-          model: Store,
-          as: 'store'
-        });
-      }
-
-      // Relacionamento com Parcelas/Pagamentos para auditoria
-      includeCondition.push({
-        model: Payment,
-        as: 'payments',
-        required: false
+      // 2. Otimização de performance (base grande, 100k+ vendas): buscar Sale + Payment
+      // numa única query com "include" faz o JOIN duplicar a linha da venda uma vez por
+      // parcela/pagamento — é isso que deixava esse endpoint lento. Em vez disso,
+      // buscamos vendas e pagamentos em duas queries independentes (nenhuma duplica
+      // linha) e somamos os pagamentos de cada venda em memória por "id" da venda.
+      const sales: any[] = await Sale.findAll({
+        where: whereCondition,
+        attributes: ['id', 'baseIcms'],
+        include: [marketplaceStoreInclude([])],
+        raw: true,
       });
 
-      // 2. Executa a busca aplicando rigorosamente os mesmos filtros da tabela
-      const sales = await Sale.findAll({
-        where: whereCondition,
-        include: includeCondition
+      const paymentRows: any[] = await Payment.findAll({
+        attributes: ['saleId', 'repasse', 'comissaoVenda', 'comissaoFrete', 'fretesTaxas'],
+        include: [{
+          model: Sale, as: 'sale', required: true, attributes: [],
+          where: whereCondition,
+          include: [marketplaceStoreInclude([])]
+        }],
+        raw: true,
       });
 
       // 3. Inicialização dos totalizadores do Sumário
@@ -476,16 +473,13 @@ export class SaleController {
 
       // 4. Consolidação matemática cruzando os dados
       sales.forEach((sale: any) => {
-        const valorVendaBruto = Number(sale.baseIcms) || 0;
-        receitaBrutaPrevista += valorVendaBruto;
+        receitaBrutaPrevista += Number(sale.baseIcms) || 0;
+      });
 
-        const pagamentosDaVenda = sale.payments || [];
-
-        pagamentosDaVenda.forEach((pay: any) => {
-          receitaConciliadaRecebida += (Number(pay.repasse) || 0);
-          comissoesMarketplace += (Number(pay.comissaoVenda) || 0) + (Number(pay.comissaoFrete) || 0);
-          custosLogisticaFrete += (Number(pay.fretesTaxas) || 0);
-        });
+      paymentRows.forEach((pay: any) => {
+        receitaConciliadaRecebida += (Number(pay.repasse) || 0);
+        comissoesMarketplace += (Number(pay.comissaoVenda) || 0) + (Number(pay.comissaoFrete) || 0);
+        custosLogisticaFrete += (Number(pay.fretesTaxas) || 0);
       });
 
       // Cálculo do saldo pendente líquido
