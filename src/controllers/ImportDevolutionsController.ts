@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { ImportDevolutionsService } from '../services/ImportDevolutionsService';
+import { friendlyImportError } from '../utils/friendlyError';
 
 const devolutionsService = new ImportDevolutionsService();
 
@@ -18,7 +19,7 @@ export class ImportDevolutionsController {
                 message: error.message,
                 stack: error.stack
             });
-            return res.status(400).json({ error: error.message });
+            return res.status(400).json({ error: friendlyImportError(error) });
         }
     }
 

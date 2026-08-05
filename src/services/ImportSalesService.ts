@@ -23,6 +23,14 @@ export class ImportSalesService {
     const initialTransaction = await sequelize.transaction();
     let batch: any;
 
+    // Mapa "texto da loja na planilha" -> "id real da loja no banco". Na maioria dos
+    // casos é o próprio texto (loja nova ou já cadastrada com id idêntico ao texto).
+    // Quando a loja já existe cadastrada com um "name" igual ao texto da planilha mas
+    // um "id" diferente (ex.: renomeada depois na tela de Lojas), resolvemos aqui para
+    // o id real, e usamos esse mapa mais abaixo ao gravar as vendas — sem isso, as
+    // vendas seriam gravadas com um storeId de mentira que não bate com loja nenhuma.
+    const resolvedStoreIds: Record<string, string> = {};
+
     try {
       batch = await Batch.create({
         name: `Lote Importado em ${new Date().toLocaleDateString('pt-BR')}`,
@@ -32,26 +40,58 @@ export class ImportSalesService {
       for (const [storeId, marketplaceId] of Object.entries(storeMapping)) {
         const storeExists = await Store.findByPk(storeId, { transaction: initialTransaction });
 
-        if (!storeExists) {
-          const formattedMarketplaceId = (marketplaceId as string).toLowerCase().trim();
-          const marketplaceExists = await Marketplace.findByPk(formattedMarketplaceId, { transaction: initialTransaction });
-
-          if (!marketplaceExists) {
-            throw new Error(`Marketplace '${marketplaceId}' não encontrado. Cadastre-o primeiro.`);
-          }
-
-          await Store.create({
-            id: storeId,
-            name: storeId,
-            marketplaceId: formattedMarketplaceId
-          }, { transaction: initialTransaction });
+        if (storeExists) {
+          resolvedStoreIds[storeId] = storeId;
+          continue;
         }
+
+        // Não achou pelo id exato — antes de criar, verifica se já existe uma loja
+        // com esse mesmo "name" (que é único no banco), só que cadastrada sob um "id"
+        // diferente do texto vindo da planilha (ex.: renomeada depois na tela de
+        // Lojas). Se achar, é garantidamente a mesma loja do mundo real — reaproveita
+        // o id existente em vez de tentar criar uma duplicada (que quebraria a
+        // constraint única de "name" com um "Validation error" genérico).
+        const storeWithSameName = await Store.findOne({
+          where: { name: storeId },
+          transaction: initialTransaction
+        });
+        if (storeWithSameName) {
+          resolvedStoreIds[storeId] = storeWithSameName.get('id') as string;
+          continue;
+        }
+
+        const formattedMarketplaceId = (marketplaceId as string).toLowerCase().trim();
+        const marketplaceExists = await Marketplace.findByPk(formattedMarketplaceId, { transaction: initialTransaction });
+
+        if (!marketplaceExists) {
+          throw new Error(`Marketplace '${marketplaceId}' não encontrado. Cadastre-o primeiro.`);
+        }
+
+        await Store.create({
+          id: storeId,
+          name: storeId,
+          marketplaceId: formattedMarketplaceId
+        }, { transaction: initialTransaction });
+        resolvedStoreIds[storeId] = storeId;
       }
 
       // Confirma a criação do lote e das lojas parceiras
       await initialTransaction.commit();
     } catch (error) {
-      await initialTransaction.rollback();
+      // Correção: se o rollback em si falhar (ex.: conexão já caiu), o erro do
+      // rollback substituía silenciosamente o erro ORIGINAL que causou a queda —
+      // por isso só estávamos vendo "Client has encountered a connection error"
+      // sem nunca saber qual foi a causa raiz de verdade. Agora logamos os dois,
+      // mas sempre relançamos o erro ORIGINAL.
+      try {
+        await initialTransaction.rollback();
+      } catch (rollbackError: any) {
+        console.error(
+          '🚨 [ImportSalesService] Falha ao reverter a transação (a causa raiz é o erro ORIGINAL abaixo, este é só o rollback):',
+          rollbackError?.message
+        );
+      }
+      console.error('🚨 [ImportSalesService] Erro ORIGINAL que causou o rollback:', error);
       throw error;
     }
 
@@ -129,7 +169,10 @@ export class ImportSalesService {
         nf: currentNf,
         date: dbDateString,
         baseIcms: Number(row.baseIcms) || 0,
-        storeId: currentLoja,
+        // Usa o id REAL da loja (resolvido no passo 1), não o texto cru da planilha —
+        // essencial para o caso de loja com "name" diferente do "id" (ver comentário
+        // acima, em resolvedStoreIds). Cai no texto original só como último recurso.
+        storeId: resolvedStoreIds[currentLoja] || currentLoja,
         batchId: batch.id
       });
     }

@@ -10,8 +10,33 @@ if (!connectionString) {
 
 export const sequelize = new Sequelize(connectionString, {
   dialect: 'postgres',
-  logging: false, 
-  models: [User, Batch, Marketplace, Store, Sale, Payment, Devolution, Frete, Difal], 
+  logging: false,
+  models: [User, Batch, Marketplace, Store, Sale, Payment, Devolution, Frete, Difal],
+
+  // Resiliência de conexão: sem isso, qualquer soquete que caia (comum em bancos
+  // remotos gerenciados, ex. Render) derruba a query/transação na hora com
+  // "Client has encountered a connection error and is not queryable" e não tenta
+  // de novo. "pool" evita acumular conexões ociosas por tempo demais, e "retry"
+  // faz o Sequelize tentar novamente automaticamente quando o erro for claramente
+  // de conexão (não mexe em nada de validação de dados/regra de negócio).
+  pool: {
+    max: 10,
+    min: 0,
+    acquire: 30000,
+    idle: 10000,
+  },
+  retry: {
+    max: 3,
+    match: [
+      /ConnectionError/,
+      /ConnectionRefusedError/,
+      /ConnectionTimedOutError/,
+      /TimeoutError/,
+      /Connection terminated/,
+      /ECONNRESET/,
+      /Client has encountered a connection error and is not queryable/,
+    ],
+  },
 });
 
 export async function connectDatabase() {

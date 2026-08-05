@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { ImportPaymentsService } from '../services/ImportPaymentsService';
+import { friendlyImportError } from '../utils/friendlyError';
 
 const paymentsService = new ImportPaymentsService();
 
@@ -18,7 +19,7 @@ export class ImportPaymentsController {
                 message: error.message,
                 stack: error.stack
             });
-            return res.status(400).json({ error: error.message });
+            return res.status(400).json({ error: friendlyImportError(error) });
         }
     }
 

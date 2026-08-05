@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { ImportSalesService } from '../services/ImportSalesService';
+import { friendlyImportError } from '../utils/friendlyError';
 
 const importService = new ImportSalesService();
 
@@ -18,7 +19,7 @@ export class ImportSalesController {
         message: error.message,
         stack: error.stack
       });
-      return res.status(400).json({ error: error.message });
+      return res.status(400).json({ error: friendlyImportError(error) });
     }
   }
 
