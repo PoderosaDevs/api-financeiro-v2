@@ -6,6 +6,7 @@ import { Sale } from './Sale';
 import { Payment } from './Payment';
 import { Devolution } from './Devolution'; // Incluindo o modelo de devolução
 import { Frete } from './Frete';
+import { Difal } from './Difal';
 
 // 1. Exportação individual de cada modelo para facilitar o uso no resto do sistema
 // Exemplo de uso: import { Sale, Payment } from './models';
@@ -17,7 +18,8 @@ export {
   Sale,
   Payment,
   Devolution,
-  Frete
+  Frete,
+  Difal,
 };
 
 // 2. Exportação de uma lista contendo todos os modelos.
@@ -30,5 +32,6 @@ export const models = [
   Sale,
   Payment,
   Devolution,
-  Frete
+  Frete,
+  Difal,
 ];
